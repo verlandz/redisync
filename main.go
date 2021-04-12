@@ -26,7 +26,10 @@ var (
 
 	// "delayFunc" using default 500ms
 	// "expiry" will set differently depends on usecase
-	// 	- cron: ideal expiry = cron interval
+	// 	- cron: (expiry = cron interval - "a little sec"), the expiry must less than cron interval to avoid time precision
+	//		ex: sometimes it can be..
+	// 			1. Get lock first than old key just expired -> this will lead error, because the service saw the key lock still there, even it actually have < 1s ttl leftgoredis
+	// 			2. Old key expired than get lock -> good case
 	// 	- etc: if the interval can't be determined, pick the value base on timeout of usecase execution / as high as possible
 	// 	and let the .Unlock() clear the lock. This to avoid case where the old one still running + key already expired,
 	// 	then another .Lock() comming in, which can lead > 1 services running.
@@ -61,12 +64,12 @@ var (
 				- only 1 service allowed to do the work
 				- after that service done, the others aren't allowed to do that
 			`,
-			Expiry: 15, Sleep: 15, Tries: 1,
+			Expiry: 13, Sleep: 15, Tries: 1,
 		},
 		// Others:
-		// - when service down after lock, what happen to key?
-		// - when redis down after lock, what happen to service?
-		// - when redis down before lock, what happen to service?
+		// - When service down after lock, what happen to key? >> the key will expired based on expiry value
+		// - When redis down after lock, what happen to service? >> the service still continue the process, but unable to unlock
+		// - When redis down before lock, what happen to service? >> the service can't do lock
 	}
 )
 
